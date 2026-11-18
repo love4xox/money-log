@@ -1,14 +1,8 @@
-"""F4: 기준 월의 카테고리별 합계.
-
-report가 제공할 것 (구현은 아직 없음):
-- monthly_report(expenses, year, month) -> MonthReport
-- MonthReport.categories: 식비/카페/교통/쇼핑/기타 순서. 없는 카테고리는 0
-- MonthReport.total: 그 달 금액의 합
-
-기준 월은 year, month로 넘긴다. 오늘 날짜는 읽지 않는다.
-"""
+"""F4: 기준 월의 카테고리별 합계 및 월별 예산 비교."""
 
 from datetime import date
+
+import pytest
 
 from money_log.classifier import CATEGORIES
 from money_log.models import Expense
@@ -103,3 +97,50 @@ def test_empty_input_is_all_zeros():
     report = monthly_report([], 2026, 11)
 
     assert report == MonthReport(_zeros(), 0)
+
+
+def test_budget_under_limit():
+    expenses = [
+        Expense(date(2026, 11, 1), "김밥", 3500, "식비"),
+        Expense(date(2026, 11, 18), "커피", 4500, "카페"),
+    ]
+
+    report = monthly_report(expenses, 2026, 11, budget=20000)
+
+    assert report.total == 8000
+    assert report.budget == 20000
+    assert report.remaining == 12000
+    assert report.is_over_budget is False
+
+
+def test_budget_exact_match_is_not_over():
+    expenses = [
+        Expense(date(2026, 11, 1), "점심", 10000, "식비"),
+    ]
+
+    report = monthly_report(expenses, 2026, 11, budget=10000)
+
+    assert report.remaining == 0
+    assert report.is_over_budget is False
+
+
+def test_budget_exceeded_sets_warning_and_negative_remaining():
+    expenses = [
+        Expense(date(2026, 11, 1), "택시", 15000, "교통"),
+        Expense(date(2026, 11, 2), "점심", 10000, "식비"),
+    ]
+
+    report = monthly_report(expenses, 2026, 11, budget=20000)
+
+    assert report.total == 25000
+    assert report.budget == 20000
+    assert report.remaining == -5000
+    assert report.is_over_budget is True
+
+
+def test_budget_must_be_positive():
+    with pytest.raises(ValueError):
+        monthly_report([], 2026, 11, budget=0)
+
+    with pytest.raises(ValueError):
+        monthly_report([], 2026, 11, budget=-5000)

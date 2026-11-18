@@ -1,18 +1,11 @@
-"""F3: 지출을 CSV에 저장하고, 날짜순 목록으로 불러오기.
-
-storage가 제공할 것 (구현은 아직 없음):
-- Expense(date, item, amount, category)
-- save_expense(expense, path): path의 CSV에 한 건 추가. 파일이 없으면 만든다.
-- load_expenses(path): 날짜 오름차순, 같은 날은 저장된 순서.
-  파일이 없거나 비어 있으면 빈 목록.
-
-경로는 호출하는 쪽이 넘긴다. 테스트는 tmp_path만 써서 data/를 건드리지 않는다.
-"""
+"""F3: 지출을 CSV에 저장하고, 날짜순 목록으로 불러오기 및 삭제하기."""
 
 import csv
 from datetime import date
 
-from money_log.storage import Expense, load_expenses, save_expense
+import pytest
+
+from money_log.storage import Expense, delete_expense, load_expenses, save_expense
 
 
 def test_save_writes_csv_at_given_path(tmp_path):
@@ -52,7 +45,6 @@ def test_save_appends(tmp_path):
 
 def test_load_sorts_by_date_ascending(tmp_path):
     path = tmp_path / "expenses.csv"
-    # 저장 순서는 날짜순이 아니다.
     for expense in (
         Expense(date(2026, 11, 18), "커피", 4500, "카페"),
         Expense(date(2026, 11, 16), "김밥", 3500, "식비"),
@@ -69,8 +61,6 @@ def test_load_sorts_by_date_ascending(tmp_path):
 
 def test_same_day_keeps_input_order(tmp_path):
     path = tmp_path / "expenses.csv"
-    # 같은 날 "택시"를 "김밥"보다 먼저 넣는다.
-    # 항목 이름순이면 김밥이 앞이라, 입력 순과 구분된다.
     for expense in (
         Expense(date(2026, 11, 18), "커피", 4500, "카페"),
         Expense(date(2026, 11, 16), "택시", 10000, "교통"),
@@ -99,3 +89,34 @@ def test_load_empty_file_returns_empty(tmp_path):
     path.write_text("", encoding="utf-8")
 
     assert load_expenses(path) == []
+
+
+def test_delete_expense_removes_item_and_returns_it(tmp_path):
+    path = tmp_path / "expenses.csv"
+    save_expense(Expense(date(2026, 11, 2), "점심", 8000, "식비"), path)
+    save_expense(Expense(date(2026, 11, 1), "커피", 4500, "카페"), path)
+    save_expense(Expense(date(2026, 11, 3), "택시", 15000, "교통"), path)
+
+    deleted = delete_expense(2, path)
+
+    assert deleted == Expense(date(2026, 11, 2), "점심", 8000, "식비")
+    remaining = load_expenses(path)
+    assert len(remaining) == 2
+    assert [e.item for e in remaining] == ["커피", "택시"]
+
+
+def test_delete_expense_raises_when_out_of_range(tmp_path):
+    path = tmp_path / "expenses.csv"
+    save_expense(Expense(date(2026, 11, 1), "커피", 4500, "카페"), path)
+
+    with pytest.raises(IndexError):
+        delete_expense(0, path)
+
+    with pytest.raises(IndexError):
+        delete_expense(2, path)
+
+
+def test_delete_expense_raises_when_file_missing(tmp_path):
+    path = tmp_path / "missing.csv"
+    with pytest.raises(IndexError):
+        delete_expense(1, path)
