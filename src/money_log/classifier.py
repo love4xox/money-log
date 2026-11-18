@@ -13,7 +13,7 @@ from typing import Callable, Optional
 CATEGORIES = ("식비", "카페", "교통", "쇼핑", "기타")
 DEFAULT_CATEGORY = "기타"
 
-DEFAULT_MODEL = "gemini-2.5-flash"
+DEFAULT_MODEL = "gemini-3.5-flash-lite"
 TIMEOUT_MS = 10_000
 
 Ask = Callable[[str], Optional[str]]
